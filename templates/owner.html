@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Owner Panel | ffglory.pro</title>
+<style>
+:root{--bg:#0b0d14;--card:#141826;--accent:#ffd700;--text:#e8eaed;--muted:#8b91a1}
+*{box-sizing:border-box;font-family:system-ui,sans-serif}
+body{margin:0;background:#0b0d14;color:var(--text)}
+header{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;background:linear-gradient(90deg,#141826,#1f1a0a);border-bottom:2px solid var(--accent)}
+header h1{margin:0;font-size:18px}.gold{color:var(--accent)}
+header a{color:var(--accent);text-decoration:none;font-size:13px}
+.wrap{max-width:1300px;margin:20px auto;padding:0 16px;display:grid;gap:16px;grid-template-columns:1fr 1fr}
+@media(max-width:900px){.wrap{grid-template-columns:1fr}}
+.card{background:var(--card);padding:18px;border-radius:14px;border:1px solid #2a2615}
+.card.full{grid-column:1/-1}
+h2{font-size:15px;margin:0 0 12px;color:var(--accent)}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th,td{padding:7px 5px;text-align:left;border-bottom:1px solid #232a40}
+th{color:var(--muted);font-weight:500;font-size:11px;text-transform:uppercase}
+input{padding:7px;border-radius:6px;border:1px solid #2a3149;background:#0f1320;color:var(--text);font-size:12px}
+button{padding:6px 11px;background:var(--accent);color:#000;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600}
+button.sm{padding:4px 8px;font-size:11px}
+button.green{background:#22c55e;color:#fff}
+button.red{background:#dc2626;color:#fff}
+button.blue{background:#3b82f6;color:#fff}
+.badge{padding:2px 7px;border-radius:6px;font-size:10px;text-transform:uppercase}
+.badge.pending{background:#3b3b1f;color:#fbbf24}
+.badge.approved{background:#1f3b2a;color:#4ade80}
+.badge.rejected{background:#3b1f1f;color:#ff6b6b}
+.badge.queued{background:#3b3b1f;color:#fbbf24}
+.badge.running{background:#1f2f3b;color:#60a5fa}
+.badge.done{background:#1f3b2a;color:#4ade80}
+.badge.failed{background:#3b1f1f;color:#ff6b6b}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+.stat{background:var(--card);padding:14px;border-radius:10px;text-align:center}
+.stat b{display:block;font-size:22px;color:var(--accent)}
+.stat span{font-size:11px;color:var(--muted)}
+@media(max-width:600px){.stats{grid-template-columns:repeat(2,1fr)}}
+</style></head><body>
+<header><h1>👑 <span class="gold">Owner Panel</span> — {{owner}}</h1><a href="/logout">Logout</a></header>
+
+<div class="wrap">
+  <div class="stats card full" style="border:none;background:transparent;padding:0">
+    <div class="stat"><b id="sU">0</b><span>Users</span></div>
+    <div class="stat"><b id="sG">0</b><span>Guest Accounts</span></div>
+    <div class="stat"><b id="sP">0</b><span>Pending Payments</span></div>
+    <div class="stat"><b id="sJ">0</b><span>Active Jobs</span></div>
+  </div>
+
+  <div class="card">
+    <h2>💰 Pricing Plans</h2>
+    <table id="pricing"><thead><tr><th>Name</th><th>Glory</th><th>Price</th><th>Active</th><th></th></tr></thead><tbody></tbody></table>
+    <h3 style="font-size:13px;margin-top:14px;color:var(--muted)">Add new plan</h3>
+    <form id="newPlan" style="display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:6px">
+      <input name="name" placeholder="Plan name" required>
+      <input name="glory_amount" type="number" placeholder="Glory" required>
+      <input name="price" type="number" placeholder="₹" required>
+      <button>Add</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>💳 UPI Settings</h2>
+    <form id="upiFrm" style="display:flex;gap:6px">
+      <input id="upiInput" style="flex:1" placeholder="yourname@upi">
+      <button>Save UPI</button>
+    </form>
+    <p style="font-size:11px;color:var(--muted);margin-top:8px">Users will pay to this UPI ID.</p>
+  </div>
+
+  <div class="card full">
+    <h2>💵 Payments</h2>
+    <table id="pay"><thead><tr><th>ID</th><th>User</th><th>Plan</th><th>₹</th><th>UTR</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead><tbody></tbody></table>
+  </div>
+
+  <div class="card">
+    <h2>👥 Users</h2>
+    <table id="users"><thead><tr><th>ID</th><th>Username</th><th>Joined</th></tr></thead><tbody></tbody></table>
+  </div>
+
+  <div class="card">
+    <h2>🎮 Guest Accounts</h2>
+    <table id="guests"><thead><tr><th>UID</th><th>Nick</th><th>Owner</th><th>Lvl</th></tr></thead><tbody></tbody></table>
+  </div>
+
+  <div class="card full">
+    <h2>🏆 Glory Push Jobs</h2>
+    <table id="jobs"><thead><tr><th>ID</th><th>User</th><th>Target</th><th>Current</th><th>Status</th><th>Log</th><th></th></tr></thead><tbody></tbody></table>
+  </div>
+</div>
+
+<script>
+async function load(){
+  const r=await fetch("/api/owner/stats"); const d=await r.json();
+  document.getElementById("sU").textContent=d.users.length;
+  document.getElementById("sG").textContent=d.guests.length;
+  document.getElementById("sP").textContent=d.payments.filter(p=>p.status==='pending').length;
+  document.getElementById("sJ").textContent=d.jobs.filter(j=>j.status==='running'||j.status==='queued').length;
+  document.getElementById("upiInput").value=d.upi||"";
+
+  const pt=document.querySelector("#pricing tbody"); pt.innerHTML="";
+  d.pricing.forEach(p=>{const tr=document.createElement("tr");
+    tr.innerHTML=`<td><input value="${p.name}" data-k="name"></td>
+      <td><input type="number" value="${p.glory_amount}" data-k="glory_amount" style="width:70px"></td>
+      <td><input type="number" value="${p.price}" data-k="price" style="width:60px"></td>
+      <td><input type="number" value="${p.active}" data-k="active" style="width:40px"></td>
+      <td><button class="sm" onclick="savePlan(${p.id},this)">Save</button>
+      <button class="sm red" onclick="delPlan(${p.id})">×</button></td>`;
+    pt.appendChild(tr);});
+
+  const ut=document.querySelector("#users tbody"); ut.innerHTML="";
+  d.users.forEach(u=>{ut.insertAdjacentHTML("beforeend",
+    `<tr><td>${u.id}</td><td>${u.username}</td><td>${u.created_at}</td></tr>`);});
+
+  const gt=document.querySelector("#guests tbody"); gt.innerHTML="";
+  d.guests.forEach(g=>{gt.insertAdjacentHTML("beforeend",
+    `<tr><td>${g.ff_uid}</td><td>${g.nickname||'-'}</td><td>${g.owner}</td><td>${g.level||0}</td></tr>`);});
+
+  const yt=document.querySelector("#pay tbody"); yt.innerHTML="";
+  d.payments.forEach(p=>{yt.insertAdjacentHTML("beforeend",
+    `<tr><td>#${p.id}</td><td>${p.username}</td><td>${p.plan_name}</td><td>₹${p.amount}</td>
+     <td style="font-size:10px">${p.utr||'-'}</td><td><span class="badge ${p.status}">${p.status}</span></td>
+     <td style="font-size:10px">${p.created_at}</td>
+     <td>${p.status==='pending'?`<button class="sm green" onclick="payAct(${p.id},'approved')">✓</button>
+       <button class="sm red" onclick="payAct(${p.id},'rejected')">×</button>`:'-'}</td></tr>`);});
+
+  const jt=document.querySelector("#jobs tbody"); jt.innerHTML="";
+  d.jobs.forEach(j=>{jt.insertAdjacentHTML("beforeend",
+    `<tr><td>#${j.id}</td><td>${j.username}</td><td>${j.target_glory}</td><td>${j.current_glory}</td>
+     <td><span class="badge ${j.status}">${j.status}</span></td>
+     <td style="font-size:10px;max-width:300px;overflow:hidden;text-overflow:ellipsis">${j.log||''}</td>
+     <td>${j.status==='queued'||j.status==='failed'?`<button class="sm blue" onclick="runJob(${j.id})">▶ Run</button>`:''}</td></tr>`);});
+}
+async function savePlan(id,btn){
+  const tr=btn.closest("tr"); const o={id};
+  tr.querySelectorAll("input").forEach(i=>o[i.dataset.k]=i.value);
+  await fetch("/api/owner/pricing",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(o)});
+  load();
+}
+async function delPlan(id){if(!confirm("Delete?"))return;
+  await fetch("/api/owner/pricing/"+id,{method:"DELETE"}); load();}
+async function payAct(id,action){
+  await fetch("/api/owner/payment/"+id,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action})});
+  load();
+}
+async function runJob(id){
+  await fetch("/api/owner/job/"+id+"/run",{method:"POST"}); setTimeout(load,500);
+}
+document.getElementById("newPlan").onsubmit=async e=>{e.preventDefault();
+  const fd=Object.fromEntries(new FormData(e.target));
+  await fetch("/api/owner/pricing",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(fd)});
+  e.target.reset(); load();};
+document.getElementById("upiFrm").onsubmit=async e=>{e.preventDefault();
+  await fetch("/api/owner/upi",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({upi:document.getElementById("upiInput").value})});
+  alert("UPI saved");};
+load(); setInterval(load,5000);
+</script></body></html>

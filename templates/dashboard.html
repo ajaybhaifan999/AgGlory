@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dashboard | ffglory.pro</title>
+<style>
+:root{--bg:#0b0d14;--card:#141826;--accent:#ff5722;--text:#e8eaed;--muted:#8b91a1;--ok:#4ade80}
+*{box-sizing:border-box;font-family:system-ui,sans-serif}
+body{margin:0;background:#0b0d14;color:var(--text)}
+header{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;background:#141826;border-bottom:1px solid #2a3149}
+header h1{font-size:18px;margin:0}
+header a{color:var(--accent);text-decoration:none;font-size:13px}
+.wrap{max-width:1100px;margin:20px auto;padding:0 16px;display:grid;gap:16px;grid-template-columns:1fr 1fr}
+@media(max-width:760px){.wrap{grid-template-columns:1fr}}
+.card{background:var(--card);padding:18px;border-radius:14px;border:1px solid #1f2538}
+h2{font-size:15px;margin:0 0 12px;color:var(--accent)}
+label{display:block;font-size:11px;color:var(--muted);margin:8px 0 4px}
+input,select{width:100%;padding:9px;border-radius:8px;border:1px solid #2a3149;background:#0f1320;color:var(--text);font-size:13px}
+button{padding:9px 14px;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600}
+button.sm{padding:5px 9px;font-size:11px}
+button.danger{background:#dc2626}
+table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px}
+th,td{padding:6px 4px;text-align:left;border-bottom:1px solid #232a40}
+th{color:var(--muted);font-weight:500}
+.row{display:flex;gap:8px}.row>*{flex:1}
+.badge{padding:2px 7px;border-radius:6px;font-size:10px;background:#1f2538}
+.badge.queued{background:#3b3b1f;color:#fbbf24}
+.badge.running{background:#1f2f3b;color:#60a5fa}
+.badge.done{background:#1f3b2a;color:var(--ok)}
+.badge.failed{background:#3b1f1f;color:#ff6b6b}
+.guild-card{display:flex;gap:12px;align-items:center;padding:12px;background:#0f1320;border-radius:10px;margin-top:8px}
+.guild-card img{width:54px;height:54px;border-radius:8px;object-fit:cover;background:#222}
+.pricing{display:grid;gap:8px}
+.plan{padding:10px;background:#0f1320;border-radius:10px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;border:2px solid transparent}
+.plan.sel{border-color:var(--accent)}
+.plan b{color:var(--accent)}
+.msg{font-size:12px;margin-top:6px;min-height:16px}
+.ok{color:var(--ok)}.err{color:#ff6b6b}
+</style></head><body>
+<header><h1>FF Glory — <span style="color:var(--muted);font-weight:400" id="hi"></span></h1><a href="/logout">Logout</a></header>
+<div class="wrap">
+
+  <div class="card">
+    <h2>Guild Info</h2>
+    <div id="guildView"></div>
+    <details style="margin-top:10px"><summary style="cursor:pointer;font-size:12px;color:var(--muted)">Edit guild</summary>
+    <form id="guildFrm">
+      <label>Name</label><input name="name" required>
+      <label>Logo URL</label><input name="logo_url" placeholder="https://...">
+      <div class="row">
+        <div><label>Level</label><input name="level" type="number" value="1"></div>
+        <div><label>Members</label><input name="member_count" type="number" value="1"></div>
+      </div>
+      <label>Leader UID</label><input name="leader_uid">
+      <button style="margin-top:10px">Save Guild</button>
+    </form></details>
+  </div>
+
+  <div class="card">
+    <h2>Guest Accounts</h2>
+    <form id="guestFrm">
+      <div class="row">
+        <div><label>FF UID</label><input name="ff_uid" required></div>
+        <div><label>Nickname</label><input name="nickname"></div>
+      </div>
+      <label>FF Guest Password</label><input name="ff_password" type="password" required>
+      <button style="margin-top:10px">Add Guest</button>
+    </form>
+    <table id="guests"><thead><tr><th>UID</th><th>Nick</th><th>Lvl</th><th></th></tr></thead><tbody></tbody></table>
+  </div>
+
+  <div class="card">
+    <h2>Buy Glory</h2>
+    <div class="pricing" id="pricing"></div>
+    <div style="margin-top:12px;padding:10px;background:#0f1320;border-radius:8px;font-size:12px">
+      Pay to UPI: <b id="upi"></b>
+    </div>
+    <label>Enter UTR / Transaction ID after payment</label>
+    <input id="utr" placeholder="UTR123456789">
+    <button id="payBtn" style="margin-top:10px;width:100%">Submit Payment</button>
+    <div class="msg" id="payMsg"></div>
+  </div>
+
+  <div class="card">
+    <h2>My Glory Jobs</h2>
+    <table id="jobs"><thead><tr><th>ID</th><th>Target</th><th>Got</th><th>Status</th></tr></thead><tbody></tbody></table>
+  </div>
+
+</div>
+<script>
+let selectedPlan=null;
+async function load(){
+  const r=await fetch("/api/me"); const d=await r.json();
+  document.getElementById("hi").textContent=d.username;
+  document.getElementById("upi").textContent=d.upi||"-";
+  // Guild
+  const gv=document.getElementById("guildView");
+  if(d.guild){gv.innerHTML=`<div class="guild-card"><img src="${d.guild.logo_url||''}" onerror="this.style.background='#333'"><div><div style="font-weight:600">${d.guild.name}</div><div style="font-size:11px;color:var(--muted)">Level ${d.guild.level} · ${d.guild.member_count} members</div><div style="font-size:11px;color:var(--muted)">Leader UID: ${d.guild.leader_uid||'-'}</div></div></div>`;
+    const f=document.getElementById("guildFrm");
+    for(const k of["name","logo_url","level","member_count","leader_uid"]) if(f[k]) f[k].value=d.guild[k]||"";
+  } else gv.innerHTML='<div style="color:var(--muted);font-size:12px">No guild yet. Use "Edit guild" below.</div>';
+  // Guests
+  const gb=document.querySelector("#guests tbody"); gb.innerHTML="";
+  d.guests.forEach(g=>{const tr=document.createElement("tr");
+    tr.innerHTML=`<td>${g.ff_uid}</td><td>${g.nickname||'-'}</td><td>${g.level||0}</td>
+      <td><button class="sm danger" onclick="delGuest(${g.id})">×</button></td>`;
+    gb.appendChild(tr);});
+  // Pricing
+  const pc=document.getElementById("pricing"); pc.innerHTML="";
+  d.pricing.forEach(p=>{const div=document.createElement("div");
+    div.className="plan"; div.dataset.id=p.id;
+    div.innerHTML=`<div><div style="font-weight:600">${p.name}</div><div style="font-size:11px;color:var(--muted)">${p.glory_amount} Glory</div></div><b>₹${p.price}</b>`;
+    div.onclick=()=>{document.querySelectorAll(".plan").forEach(x=>x.classList.remove("sel"));
+      div.classList.add("sel"); selectedPlan=p.id;};
+    pc.appendChild(div);});
+  // Jobs
+  const jb=document.querySelector("#jobs tbody"); jb.innerHTML="";
+  d.jobs.forEach(j=>{const tr=document.createElement("tr");
+    tr.innerHTML=`<td>#${j.id}</td><td>${j.target_glory}</td><td>${j.current_glory}</td>
+      <td><span class="badge ${j.status}">${j.status}</span></td>`;
+    jb.appendChild(tr);});
+}
+async function delGuest(id){if(!confirm("Delete?"))return;
+  await fetch("/api/guest/"+id,{method:"DELETE"}); load();}
+document.getElementById("guestFrm").onsubmit=async e=>{e.preventDefault();
+  const fd=Object.fromEntries(new FormData(e.target));
+  const r=await fetch("/api/guest",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(fd)});
+  const j=await r.json(); if(j.ok){e.target.reset();load();} else alert(j.error);};
+document.getElementById("guildFrm").onsubmit=async e=>{e.preventDefault();
+  const fd=Object.fromEntries(new FormData(e.target));
+  await fetch("/api/guild",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(fd)});
+  load();};
+document.getElementById("payBtn").onclick=async()=>{
+  const utr=document.getElementById("utr").value.trim();
+  const m=document.getElementById("payMsg");
+  if(!selectedPlan){m.textContent="Select a plan";m.className="msg err";return;}
+  if(!utr){m.textContent="Enter UTR";m.className="msg err";return;}
+  const r=await fetch("/api/payment",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({plan_id:selectedPlan,utr})});
+  const j=await r.json();
+  m.textContent=j.message||j.error; m.className="msg "+(j.ok?"ok":"err");
+  if(j.ok){document.getElementById("utr").value="";load();}};
+load(); setInterval(load,8000);
+</script></body></html>
